@@ -1,0 +1,338 @@
+{
+    "AWSTemplateFormatVersion": "2010-09-09",
+    "Parameters": {
+        "BaseStack": {
+            "Type": "String",
+            "Default": "stack-ms-agristamp-base"
+        },
+        "ECRrepositoryName": {
+            "Type": "String",
+            "Default": "swissre_service"
+        },
+        "lambdaFunctionName": {
+            "Type": "String",
+            "Default": "swissre_service_function"
+        }
+    },
+    "Resources": {
+        "apiGatewayPermissionHomolog": {
+            "Type": "AWS::Lambda::Permission",
+            "Properties": {
+                "Action": "lambda:InvokeFunction",
+                "FunctionName": {
+                    "Fn::Join": [       
+                        "",
+                        [
+                            {
+                                "Fn::GetAtt": [
+                                    "BaseServiceLambda",
+                                    "Arn"
+                                ]
+                            },
+                            ":homolog"
+                        ]
+                    ]
+                },
+                "Principal": "apigateway.amazonaws.com",
+                "SourceArn": {
+                    "Fn::Join": [
+                        "",
+                        [
+                            "arn:aws:execute-api:",
+                            {
+                                "Ref": "AWS::Region"
+                            },
+                            ":",
+                            {
+                                "Ref": "AWS::AccountId"
+                            },
+                            ":",
+                            {
+                                "Fn::ImportValue": {
+                                    "Fn::Sub": "${BaseStack}-RestAPIID"
+                                }
+                            },
+                            "/*/*/*/*"
+                        ]
+                    ]
+                }
+            },
+            "DependsOn": [
+                "HomologAlias"
+            ]
+        },
+        "apiGatewayPermissionProd": {
+            "Type": "AWS::Lambda::Permission",
+            "Properties": {
+                "Action": "lambda:InvokeFunction",
+                "FunctionName": {
+                    "Fn::Join": [       
+                        "",
+                        [
+                            {
+                                "Fn::GetAtt": [
+                                    "BaseServiceLambda",
+                                    "Arn"
+                                ]
+                            },
+                            ":prod"
+                        ]
+                    ]
+                },
+                "Principal": "apigateway.amazonaws.com",
+                "SourceArn": {
+                    "Fn::Join": [
+                        "",
+                        [
+                            "arn:aws:execute-api:",
+                            {
+                                "Ref": "AWS::Region"
+                            },
+                            ":",
+                            {
+                                "Ref": "AWS::AccountId"
+                            },
+                            ":",
+                            {
+                                "Fn::ImportValue": {
+                                    "Fn::Sub": "${BaseStack}-RestAPIID"
+                                }
+                            },
+                            "/*/*/*/*"
+                        ]
+                    ]
+                }
+            },
+            "DependsOn": [
+                "ProdAlias"
+            ]
+        },        
+        "lambdaIAMRole": {
+            "Type": "AWS::IAM::Role",
+            "Properties": {
+                "AssumeRolePolicyDocument": {
+                    "Version": "2012-10-17",
+                    "Statement": [
+                        {
+                            "Action": [
+                                "sts:AssumeRole"
+                            ],
+                            "Effect": "Allow",
+                            "Principal": {
+                                "Service": [
+                                    "lambda.amazonaws.com"
+                                ]
+                            }
+                        }
+                    ]
+                },
+                "Policies": [
+                    {
+                        "PolicyDocument": {
+                            "Version": "2012-10-17",
+                            "Statement": [
+                                {
+                                    "Action": [
+                                        "logs:CreateLogGroup",
+                                        "logs:CreateLogStream",
+                                        "logs:PutLogEvents"
+                                    ],
+                                    "Effect": "Allow",
+                                    "Resource": [
+                                        {
+                                            "Fn::Sub": "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/${lambdaFunctionName}:*"
+                                        }
+                                    ]
+                                }
+                            ]
+                        },
+                        "PolicyName": "lambda"
+                    }
+                ]
+            }
+        },
+        "lambdaLogGroup": {
+            "Type": "AWS::Logs::LogGroup",
+            "Properties": {
+                "LogGroupName": {
+                    "Fn::Sub": "/aws/lambda/${lambdaFunctionName}"
+                },
+                "RetentionInDays": 90
+            }
+        },
+        "BaseServiceLambda": {
+            "Type": "AWS::Lambda::Function",
+            "Properties": {
+                "Description": "Base Lambda Function example",
+                "FunctionName": {
+                    "Ref": "lambdaFunctionName"
+                },
+                "Role": {
+                    "Fn::GetAtt": [
+                        "lambdaIAMRole",
+                        "Arn"
+                    ]
+                },
+                "Code": {
+                    "ImageUri": {
+                        "Fn::Sub": "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${ECRrepositoryName}:latest"
+                    }
+                },
+                "PackageType": "Image",
+                "Timeout": 20
+            },
+            "Metadata": {
+                "AWS::CloudFormation::Designer": {
+                    "id": "a58c98e2-a8b1-4b2b-a3ff-120dfb3394a3"
+                }
+            }
+        },
+        "HomologAlias": {
+            "Type": "AWS::Lambda::Alias",
+            "Properties": {
+                "FunctionName": {
+                    "Ref": "BaseServiceLambda"
+                },
+                "Name": "homolog",
+                "FunctionVersion": "$LATEST"
+            },
+            "Metadata": {
+                "AWS::CloudFormation::Designer": {
+                    "id": "094c59aa-308d-45d3-9139-23222dbea24d"
+                }
+            },
+            "DependsOn": [
+                "BaseServiceLambda"
+            ]            
+        },
+        "ProdAlias": {
+            "Type": "AWS::Lambda::Alias",
+            "Properties": {
+                "FunctionName": {
+                    "Ref": "BaseServiceLambda"
+                },
+                "Name": "prod",
+                "FunctionVersion": "$LATEST"
+            },
+            "Metadata": {
+                "AWS::CloudFormation::Designer": {
+                    "id": "6fceb1d5-d622-477a-b866-9708b8bf5027"
+                }
+            },
+            "DependsOn": [
+                "BaseServiceLambda"
+            ]               
+        },
+        "BaseServiceResourceRoot": {
+            "Type": "AWS::ApiGateway::Resource",
+            "Properties": {
+                "RestApiId": {
+                    "Fn::ImportValue": {
+                        "Fn::Sub": "${BaseStack}-RestAPIID"
+                    }
+                },
+                "ParentId": {
+                    "Fn::ImportValue": {
+                        "Fn::Sub": "${BaseStack}-RestAPIRoot"
+                    }
+                },
+                "PathPart": {
+                    "Fn::Sub": "${ECRrepositoryName}"
+                }
+            },
+            "Metadata": {
+                "AWS::CloudFormation::Designer": {
+                    "id": "a1f8aacd-a6d6-4305-bc2b-22ea0cb6a9e8"
+                }
+            }
+        },
+        "BaseServiceResourceProxy": {
+            "Type": "AWS::ApiGateway::Resource",
+            "Properties": {
+                "RestApiId": {
+                    "Fn::ImportValue": {
+                        "Fn::Sub": "${BaseStack}-RestAPIID"
+                    }
+                },
+                "ParentId": {
+                    "Ref": "BaseServiceResourceRoot"
+                },
+                "PathPart": "{proxy+}"
+            },
+            "Metadata": {
+                "AWS::CloudFormation::Designer": {
+                    "id": "a1f8aacd-a6d6-4305-bc2b-22ea0cb6a9e8"
+                }
+            },
+            "DependsOn": [
+                "BaseServiceResourceRoot"
+            ]
+        },
+        "BaseServiceProxyMethod": {
+            "Type": "AWS::ApiGateway::Method",
+            "Properties": {
+                "AuthorizationType": "NONE",
+                "ResourceId": {
+                    "Ref": "BaseServiceResourceProxy"
+                },
+                "Integration": {
+                    "IntegrationHttpMethod": "POST",
+                    "Type": "AWS_PROXY",
+                    "Uri": {
+                        "Fn::Sub": [
+                            "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${lambdaArn}:${stage}/invocations",
+                            {
+                                "lambdaArn": {
+                                    "Fn::GetAtt": [
+                                        "BaseServiceLambda",
+                                        "Arn"
+                                    ]
+                                },
+                                "stage": "${stageVariables.lambdaAlias}"
+                            }
+                        ]
+                    }
+                },
+                "HttpMethod": "ANY",
+                "RestApiId": {
+                    "Fn::ImportValue": {
+                        "Fn::Sub": "${BaseStack}-RestAPIID"
+                    }
+                }
+            },
+            "Metadata": {
+                "AWS::CloudFormation::Designer": {
+                    "id": "dd4a796a-ce66-4777-b0ab-62cc6d1a3774"
+                }
+            },
+            "DependsOn": [
+                "BaseServiceLambda",
+                "BaseServiceResourceProxy"
+            ]
+        },
+        "DeployHomolog": {
+            "Type": "AWS::ApiGateway::Deployment",
+            "Properties": {
+                "RestApiId": {
+                    "Fn::ImportValue": {
+                        "Fn::Sub": "${BaseStack}-RestAPIID"
+                    }
+                },
+                "StageName" : "homolog"
+            },
+            "DependsOn": ["BaseServiceProxyMethod"]
+        },
+        "DeployProd": {
+            "Type": "AWS::ApiGateway::Deployment",
+            "Properties": {
+                "RestApiId": {
+                    "Fn::ImportValue": {
+                        "Fn::Sub": "${BaseStack}-RestAPIID"
+                    }
+                },
+                "StageName" : "prod"
+            },
+            "DependsOn": ["BaseServiceProxyMethod"]
+        }        
+    }
+}

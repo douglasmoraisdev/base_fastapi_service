@@ -1,0 +1,119 @@
+node {
+
+    def projectImage
+
+    try{
+
+        stage('Checkout') {
+
+                checkout scm
+
+                def nameRegex = scm.userRemoteConfigs.url[0] =~ /^(https|git)(:\/\/|@)([^\/:]+)[\/:]([^\/:]+)\/(.+).git$/;
+                NAME = nameRegex[0][5]
+
+        }
+
+        stage('Load Configuration') {
+
+            sh "echo branch name: ${env.BRANCH_NAME}"
+
+            // build prod stage if is git TAG
+            if (env.TAG_NAME){
+                BUILD_ENV = 'prod'
+            }else{
+                BUILD_ENV = env.BRANCH_NAME
+            }
+
+            sendSMS("JENKINS - $NAME:build[${env.BUILD_ID}][$BUILD_ENV] INICIOU ATUALIZACAO DE DOMINIOS", "${env.AWS_DEFAULT_REGION}", "${env.AWS_SNS_TOPIC}");
+
+            SERVICE_NAME = "$NAME"
+            BUILD_ID = "${env.BUILD_ID}"
+
+            configFileProvider(
+                [configFile(fileId: "$BUILD_ENV"+"_envfile", variable: 'JSON_FILE')]) {
+
+                    def jsonObj = readJSON file: "$JSON_FILE";
+                    def confNode = jsonObj."$NAME";
+
+                    // Monta a string de configuração do docker
+                    // variaveis default: BUILD_ID
+                    DOCKER_CONF_STRING = "--env BUILD_ID=$BUILD_ID "
+                    confNode.each{entry ->
+                        DOCKER_CONF_STRING = DOCKER_CONF_STRING + "--env $entry.key=$entry.value ";
+                    };
+
+                    STAGE = "${confNode.STAGE}"
+                    CLUSTER_URL = "${confNode.CLUSTER_URL}"
+            }
+
+        }
+
+        stage('Pre Build') {
+
+            println "${DOCKER_CONF_STRING}"
+
+            projectImage = docker.build("$SERVICE_NAME:${env.BUILD_ID}")
+
+        }
+
+        stage('Execute Scripts') {
+
+            // Adicione os scripts a serem executados nessa lista
+            def lista_scripts = [
+                "./app/scripts/update_defaults.py",
+                "./app/scripts/update_produto.py",
+                "./app/scripts/update_formas_pagamento.py",
+                "./app/scripts/update_valores_saca.py"
+            ];
+
+            lista_scripts.each{item ->
+
+                stage('Execute Script: '+item) {
+
+                    catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
+
+                        try{
+                            projectImage.inside("${DOCKER_CONF_STRING}") {
+                                sh 'PYTHONPATH=. '+item
+                            }
+                        } catch(e){
+                            sendSMS("JENKINS - Não executou o script"+item+" Erro: "+e, "", "");
+                            error "Não executou o script "+item
+                        }
+                    }
+
+                }
+
+            };
+
+        }
+
+        stage('Heath Check'){
+
+            sh "curl -sf '$CLUSTER_URL/$STAGE/$SERVICE_NAME/health' >/dev/null"
+
+        }
+
+        sendSMS("JENKINS - $NAME:build[${env.BUILD_ID}][$BUILD_ENV] SUCESSO ATUALIZANDO OS DOMINIOS", "${env.AWS_DEFAULT_REGION}", "${env.AWS_SNS_TOPIC}");
+
+
+    } catch (e) {
+
+        sendSMS("JENKINS - $NAME:build[${env.BUILD_ID}][$BUILD_ENV] FALHOU ATUALIZANDO OS DOMINIOS: ${env.BUILD_URL}", "${env.AWS_DEFAULT_REGION}", "${env.AWS_SNS_TOPIC}");
+
+        error e
+
+    }
+
+}
+
+def sendSMS(message, region, topic){
+
+    try{
+        TELEGRAM_CMD = env.TELEGRAM_SEND_MESSAGE_CMD.replace('<BOT_TOKEN>', env.BOT_TOKEN).replace('<GROUP_ID>', env.GROUP_ID).replace('<MESSAGE>', message)
+        sh(returnStdout: true, script: "${TELEGRAM_CMD}")
+    } catch(e){
+        sh "echo 'Não enviou a notificacao'"
+    }
+
+};

@@ -1,0 +1,9 @@
+FROM fastapi_base:local
+
+COPY ./app /app
+
+RUN pip install -r /app/requirements.txt
+
+EXPOSE 3002
+
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "3002", "--reload", "--reload-dir", "./app"]

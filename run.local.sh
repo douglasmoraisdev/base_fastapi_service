@@ -1,0 +1,1 @@
+uvicorn main:app --port 3002 --app-dir app

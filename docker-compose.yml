@@ -1,0 +1,32 @@
+version: '3'
+
+services:
+
+  # Application
+  swissre_service_lambda:
+    image: swissre_service:latest
+    hostname: swissre_service_lambda
+    container_name: swissre_service_lambda
+    volumes:
+      - ./app:/app
+      - ./app:/var/task/app
+    ports: 
+      #- "3000:3002"
+      - "9003:8080" # lambda port
+      #- "5678:5678" # python debug port
+    environment:
+      - STAGE=local
+      - CLUSTER_URL=http://172.17.0.1:80
+      - BUILD_ID=1
+      - DEBUG=0
+      - DEV=1
+      - DATABASE_URL=mysql+pymysql://root:pass4mysql@172.17.0.1/homolog
+      - MONGODB_URL=mongodb://root:example@172.17.0.1:27017
+      - AGRISTAMP_KEY=96ee9d62-ea61-11eb-9a03-0242ac130003
+      - SWISSRE_AUTH_TOKEN=c021cd3b54c44023892d83ac219a2059
+      - SWISSRE_API_URL=https://corsobr-api-gateway-ite.swissre.com/
+      - SWISSRE_API_AUTH_URL=https://corsobr-api-gateway-ite.swissre.com/authentication/v1/
+      - SWISSRE_USERNAME=EBVRVZ
+      - SWISSRE_PASSWORD=Xmas@2021
+      - SWISSRE_CLIENT_ID=20
+      - QUEUE_URL_PROPOSTAS_PUB_SERVICE=queue-propostas-pub-service-dev

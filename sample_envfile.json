@@ -1,0 +1,25 @@
+{
+
+    "auth_service" : {
+        "STAGE": "homolog",
+        "CLUSTER_URL": "https://j8mj59343f.execute-api.us-east-1.amazonaws.com",
+        "DATABASE_URL": "mysql+pymysql://root:pass4mysql@172.17.0.1/homolog",
+        "MONGODB_URL": "mongodb+srv://douglas:morais20@cluster1.opx0m.mongodb.net/auth_db?retryWrites=true&w=majority"
+    },
+
+    "base_service" : {
+        "STAGE": "homolog",
+        "CLUSTER_URL": "https://j8mj59343f.execute-api.us-east-1.amazonaws.com",
+        "DATABASE_URL": "mysql+pymysql://root:pass4mysql@172.17.0.1/homolog",
+        "MONGODB_URL": "mongodb+srv://douglas:morais20@cluster1.opx0m.mongodb.net/auth_db?retryWrites=true&w=majority"
+    },
+
+    "mapas_service" : {
+        "STAGE": "homolog",
+        "CLUSTER_URL": "https://j8mj59343f.execute-api.us-east-1.amazonaws.com",
+        "DATABASE_URL": "mysql+pymysql://root:pass4mysql@172.17.0.1/homolog",
+        "MONGODB_URL": "mongodb+srv://douglas:morais20@cluster1.opx0m.mongodb.net/auth_db?retryWrites=true&w=majority"
+    }
+
+
+}

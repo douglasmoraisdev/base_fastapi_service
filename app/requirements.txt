@@ -1,0 +1,14 @@
+fastapi[all]
+pytest
+mangum==0.10.0
+requests>=2.24.0
+uvicorn==0.12.2
+sqlalchemy==1.4.0
+fastapi-sqlalchemy==0.2.1
+PyMySQL==1.0.2
+debugpy
+motor==2.2.0
+git+https://github.com/douglasmoraisdev/agristamp_common#egg=agristamp_common
+python-dotenv==0.19.0
+pika
+python-slugify

@@ -1,0 +1,121 @@
+node {
+
+        def projectImage
+
+        stage('Checkout') {
+
+                checkout scm
+
+                def nameRegex = scm.userRemoteConfigs.url[0] =~ /^(https|git)(:\/\/|@)([^\/:]+)[\/:]([^\/:]+)\/(.+).git$/
+                NAME = nameRegex[0][5]
+        }
+
+        stage('Criando Repositório_ECR') {
+
+            BUILD_ENV = 'homolog'
+            SERVICE_NAME = "$NAME"
+            ECR_STACK_NAME = "stack-ecr-"+SERVICE_NAME.replace("_","-")
+            ENDPOINT_STACK_NAME = "stack-endpoint-"+SERVICE_NAME.replace("_","-")
+            DOCKER_REPO = "${env.AWS_ACCOUNT_ID}.dkr.ecr.${env.AWS_DEFAULT_REGION}.amazonaws.com"
+            LAMBDA_FUNCTION = "$SERVICE_NAME"+"_function"
+            DOCKER_ECR_LOGIN = sh(returnStdout: true, script: "aws ecr get-login-password --region ${env.AWS_DEFAULT_REGION}").trim()
+           
+            sh "aws --region=${env.AWS_DEFAULT_REGION} cloudformation create-stack --stack-name $ECR_STACK_NAME --template-body file:///${workspace}/image.stack.json --parameters ParameterKey=ECRrepositoryName,ParameterValue=$SERVICE_NAME"
+
+            sh "aws --region=${env.AWS_DEFAULT_REGION} cloudformation wait stack-create-complete --stack-name=$ECR_STACK_NAME"
+
+        }
+
+        stage('Configure') {
+
+            configFileProvider(
+                [configFile(fileId: "$BUILD_ENV"+"_envfile", variable: 'JSON_FILE')]) {
+
+                    def jsonObj = readJSON file: "$JSON_FILE";
+                    def confNode = jsonObj."$NAME";
+
+                    STAGE = "${confNode.STAGE}"
+                    CLUSTER_URL = "${confNode.CLUSTER_URL}"
+                    DATABASE_URL = "${confNode.DATABASE_URL}"
+                    MONGODB_URL = "${confNode.MONGODB_URL}"
+
+                    BUILD_ID = "${env.BUILD_ID}"
+                    LAMBDA_TASK_ROOT = "$BUILD_ENV"
+
+            }
+
+
+        }
+
+
+        stage('Pre Build') {
+                
+            projectImage = docker.build("$SERVICE_NAME:${env.BUILD_ID}",
+                                        "--build-arg STAGE=$STAGE \
+                                         --build-arg CLUSTER_URL=$CLUSTER_URL \
+                                         --build-arg BUILD_ID=$BUILD_ID \
+                                         --build-arg DATABASE_URL=$DATABASE_URL \
+                                         --build-arg LAMBDA_TASK_ROOT=$LAMBDA_TASK_ROOT .")
+        }
+
+
+        stage('Publish'){
+
+            sh "docker login --username AWS --password $DOCKER_ECR_LOGIN $DOCKER_REPO"
+
+            sh "docker tag $SERVICE_NAME:${env.BUILD_ID} $SERVICE_NAME:latest"
+
+            sh "docker tag $SERVICE_NAME:latest $DOCKER_REPO/$SERVICE_NAME:latest"
+            sh "docker push $DOCKER_REPO/$SERVICE_NAME:latest"
+
+        }
+
+        stage('Create stack'){
+
+            sh "aws --region=${env.AWS_DEFAULT_REGION} cloudformation create-stack --stack-name $ENDPOINT_STACK_NAME --template-body file:///${workspace}/endpoint.stack.json --parameters ParameterKey=ECRrepositoryName,ParameterValue=$SERVICE_NAME ParameterKey=lambdaFunctionName,ParameterValue=$LAMBDA_FUNCTION --capabilities CAPABILITY_IAM"
+
+            sh "aws --region=${env.AWS_DEFAULT_REGION} cloudformation wait stack-create-complete --stack-name=$ENDPOINT_STACK_NAME"
+
+        }
+
+        stage('Update Lambda'){
+
+            sh "echo publishing on $BUILD_ENV"
+
+            //Update $LATEST lambda version
+            sh "aws --region=${env.AWS_DEFAULT_REGION} lambda update-function-code --function-name $LAMBDA_FUNCTION --image-uri $DOCKER_REPO/$SERVICE_NAME:latest"
+
+            sh "aws --region=${env.AWS_DEFAULT_REGION} lambda wait function-updated --function-name $LAMBDA_FUNCTION"
+
+            def lambda_return = sh(returnStdout: true, script: "aws --region=${env.AWS_DEFAULT_REGION} lambda publish-version --function-name $LAMBDA_FUNCTION --description build_${env.BUILD_ID}_$BUILD_ENV").trim()
+
+            def lambdaJson = readJSON text: lambda_return
+
+            def newVersion = lambdaJson.Version
+
+            sh "aws --region=${env.AWS_DEFAULT_REGION} lambda update-alias --function-name $LAMBDA_FUNCTION --name $BUILD_ENV --function-version "+newVersion
+
+        }
+
+        stage('Clear'){
+            sh "docker rmi $SERVICE_NAME:${env.BUILD_ID}"
+            sh "docker rmi $DOCKER_REPO/$SERVICE_NAME:latest"
+
+        }
+
+        stage('Heath Check'){
+
+            sh "aws --region=${env.AWS_DEFAULT_REGION} lambda wait function-updated --function-name $LAMBDA_FUNCTION"
+            
+            retry(3) {
+
+                sleep(5)
+
+                sh "curl -sf '$CLUSTER_URL/$STAGE/$SERVICE_NAME/health' >/dev/null"
+            
+            }
+
+        }
+
+
+}

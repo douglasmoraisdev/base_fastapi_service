@@ -1,0 +1,17 @@
+{
+    "AWSTemplateFormatVersion": "2010-09-09",
+    "Parameters": {
+        "ECRrepositoryName": {
+            "Type": "String",
+            "Default": "swissre_service"
+        }
+    },
+    "Resources": {
+        "BaseServiceECR": {
+            "Type": "AWS::ECR::Repository",
+            "Properties": {
+                "RepositoryName": { "Fn::Sub": "${ECRrepositoryName}" }
+            }
+        }
+    }
+}

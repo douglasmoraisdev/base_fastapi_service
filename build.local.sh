@@ -1,0 +1,1 @@
+docker build -f Dockerfile.local -t swissre_service:local .

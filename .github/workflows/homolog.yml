@@ -18,11 +18,13 @@ jobs:
     - name: Show files
       run: "ls -la"
 
-    - name: Show .env
-      run: "echo ${{ secrets.CONFIG_DOTENV }} > .env"
-
-    - name: Show .env
-      run: "echo 'CONFIG_1=1' > .env"
+  - name: print secrets
+    run: |
+        echo $DEV_ENV_FILE &gt;&gt; src/.env
+        cat src/.env
+    shell: bash
+    env:
+      DEV_ENV_FILE : ${{secrets.CONFIG_DOTENV}}
 
     - name: Show files
       run: "ls -la"

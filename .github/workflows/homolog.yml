@@ -20,8 +20,8 @@ jobs:
 
   - name: print secrets
     run: |
-        echo $DEV_ENV_FILE &gt;&gt; src/.env
-        cat src/.env
+        echo $DEV_ENV_FILE &gt;&gt; .env
+        cat .env
     shell: bash
     env:
       DEV_ENV_FILE : ${{secrets.CONFIG_DOTENV}}

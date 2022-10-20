@@ -21,6 +21,9 @@ jobs:
     - name: Show .env
       run: "echo ${{ secrets.CONFIG_DOTENV }} > .env"
 
+    - name: Show .env
+      run: "echo 'CONFIG_1=1' > .env"
+
     - name: Show files
       run: "ls -la"
 

@@ -14,11 +14,16 @@ jobs:
     environment: homolog
 
     steps:
-
     - uses: actions/checkout@v3
+    - name: Use Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v3
+      with:
+        node-version: ${{ matrix.node-version }}
 
-    - name: Show files
-    run: "ls -l"
+    #- uses: actions/checkout@v3
 
-    - name: Show .env
-    run: "echo  ${{ secrets.CONFIG_DOTENV }}"
+    #- name: Show files
+    #run: "ls -l"
+
+    #- name: Show .env
+    #run: "echo  ${{ secrets.CONFIG_DOTENV }}"

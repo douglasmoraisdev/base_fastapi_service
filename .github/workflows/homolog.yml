@@ -23,3 +23,6 @@ jobs:
 
     - name: Show files
       run: "ls -la"
+
+    - name: Show .env
+      run: "cat .env"

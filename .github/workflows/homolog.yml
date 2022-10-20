@@ -7,6 +7,9 @@ jobs:
   continuous-deployment:
     runs-on: ubuntu-latest
     environment: homolog
+    strategy:
+      matrix:
+        python-version: [3.8]
 
     steps:
 

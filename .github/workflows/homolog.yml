@@ -1,8 +1,8 @@
 name: CI/CD Pipeline
 on:
   push:
-    tags:
-      - homolog-**
+    branches:
+      - master
 
 jobs:
   continuous-deployment:

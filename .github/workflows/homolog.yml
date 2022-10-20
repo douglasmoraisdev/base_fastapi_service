@@ -1,0 +1,19 @@
+name: CI/CD Pipeline
+on:
+  push:
+    branches: [ "master" ]
+
+jobs:
+  continuous-deployment:
+    runs-on: ubuntu-latest
+    environment: homolog
+
+    steps:
+
+    - uses: actions/checkout@v3
+
+    - name: Show files
+    run: "ls -l"
+
+    - name: Show .env
+    run: "echo  ${{ secrets.CONFIG_DOTENV }}"

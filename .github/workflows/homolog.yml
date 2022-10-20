@@ -3,15 +3,15 @@ on:
   push:
     tags:
       - homolog-**
-      
 
 jobs:
   continuous-deployment:
     runs-on: ubuntu-latest
-    environment: homolog
     strategy:
       matrix:
+        node-version: [16.x]
         python-version: [3.8]
+    environment: homolog
 
     steps:
 
